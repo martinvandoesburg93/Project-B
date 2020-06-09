@@ -5,6 +5,7 @@ using static System.Console;
 using TUI;
 using DishManager;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace Restaurant_Web_app
 {
@@ -13,10 +14,18 @@ namespace Restaurant_Web_app
 		
 		static void Main(string[] args)
 		{
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
             FillDishMenu();
+
+            // Set a random daily and monthly dish
+            Random rand = new Random();
+            var dishes = Dish.DishDict.Values.ToList();
+            Dish.DailyDish = dishes[rand.Next(0, dishes.Count)];
+
             TextUserInterface TUI = new TextUserInterface();
             TUI.DisplayWelcomeScreen();
-        }	
+
+        }
 
 
 		public static void FillDishMenu()
@@ -126,34 +135,4 @@ namespace Restaurant_Web_app
 
 	
 }
-
-				
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

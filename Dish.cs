@@ -23,6 +23,8 @@ namespace DishManager
 		public double Price;
 		public string Desc;
 		public static Dictionary<int, Dish> DishDict = new Dictionary<int, Dish>();
+		public static Dish DailyDish { get; set; }
+		public static Dish MonthlyDish { get; set; }
 
 		public Dish(int dishcode, string name, DishTypes type, double price, string desc)
 		{
@@ -34,18 +36,27 @@ namespace DishManager
 			DishDict.Add(DishCode, this);
 		}
 
-		public static void InfoWithDishCode(int dishcode)
-		{
-			Dish dish = DishDict[dishcode];
-			Write($"Code: {dish.DishCode}, Name: {dish.Name}, Desc: {dish.Desc}, Type: {dish.Type}, Price: {dish.Price}.");
+		public Dish(string name, DishTypes type, double price, string desc) : this(GenerateDishCode(), name, type, price, desc) { }
+
+        public override string ToString()
+        {
+			return $"Dish<{Name},{Type},({Price}€),{(Desc.Length < 20 ? Desc : Desc.Substring(0, 20) + "...")}>";
+        }
+
+		public string Info()
+        {
+			return $" {DishCode,-6}{Name,-30}{Type,-10}{Price,-10:F2}{Desc}";
 		}
 
-
-		public static void PrintAllDishes()
-		{
-			foreach (var item in DishDict)
-				Write($"Code: {item.Key}, Name: {item.Value.Name}, Desc: {item.Value.Desc}, Type: {item.Value.Type}, Price: {item.Value.Price}.");
-		}
+		public static void PrintDishes(DishTypes? filter = null)
+        {
+			WriteLine($" {"Code",-6}{"Name",-30}{"Type",-10}{"Price",-10}Description");
+			foreach (Dish dish in DishDict.Values)
+            {
+				if (filter == null || dish.Type == filter)
+					WriteLine(dish.Info());
+            }
+        }
 
 		public static int GenerateDishCode()
 		{
@@ -55,91 +66,23 @@ namespace DishManager
 			return code;
 		}
 
-		public static Dish CreateDishFromConsole()
+		public static void RemoveDish(int dishcode)
 		{
-			int dishcode = GenerateDishCode();
-
-			Write("Give the name of the new dish: ");
-			string name = ReadLine();
-
-			Write("Give the type of the new dish: ");
-			DishTypes type = (DishTypes) Enum.Parse(typeof(DishTypes), ReadLine());
-
-			double price = 0;
-			do Write("Give the price of the new dish: ");
-			while (!double.TryParse(ReadLine(), out price));
-
-			Write("Give the description of the new dish: ");
-			string desc = ReadLine();
-
-			return new Dish(dishcode, name, type, price, desc);
-		}
-
-		public static void RemoveDish()
-		{
-			PrintAllDishes();
-			Write("Enter the dishcode of the dish you want to remove: ");
-			int dishcode = Int32.Parse(ReadLine());
-
 			foreach (var item in DishDict)
 				if (item.Key == dishcode)
 					DishDict.Remove(dishcode);
 		}
 
-		public static void EditDish()
+		public void EditDish(string name = "", DishTypes? type = null, double price = -1, string desc = null)
 		{
-			PrintAllDishes();
-			Write("Enter the dishcode of the dish you want to edit: ");
-			int code = Int32.Parse(ReadLine());
-			Dish dish = DishDict[code];
-
-			Write($"Change the current name: {dish.Name}, or leave blank to keep it unchanged: ");
-			if (!(ReadLine() == null))
-				dish.Name = ReadLine();
-
-			Write($"Change the current type: {dish.Type}, or leave blank to keep it unchanged: ");
-			if (!(ReadLine() == null))
-				dish.Type = (DishTypes)Enum.Parse(typeof(DishTypes), ReadLine());
-
-			double price = 0;
-			do Write($"Change the current price: {dish.Price}, or leave blank to keep it unchanged: ");
-			while (!double.TryParse(ReadLine(), out price));
-			dish.Price = price;
-
-			Write($"Change the current description: {dish.Desc}, or leave blank to keep it unchanged: ");
-			if (!(ReadLine() == null))
-				dish.Desc = ReadLine();
+			if (name != "")
+				Name = name;
+			if (type != null)
+				Type = (DishTypes) type;
+			if (price != -1)
+				Price = price;
+			if (desc != null)
+				Desc = desc;
 		}
 	}
 }
-
-				
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

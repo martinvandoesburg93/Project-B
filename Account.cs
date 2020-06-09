@@ -19,7 +19,8 @@ namespace AccountManager
 		private static Dictionary<string, Account> AccountsDict = new Dictionary<string, Account>()
 		{
 			{ "admin", new Account("admin", "admin", AccountPermissionTypes.Admin) },
-			{ "chef", new Account("chef", "chef", AccountPermissionTypes.Chef) }
+			{ "chef", new Account("chef", "chef", AccountPermissionTypes.Chef) },
+			{ "tony", new Account("tony", "laats", AccountPermissionTypes.Customer) }
 		};
 
 		public static bool SignIn(string username, string password)
