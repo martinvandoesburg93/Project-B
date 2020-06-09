@@ -5,6 +5,9 @@ using static System.Console;
 using AccountManager;
 using DishManager;
 using System.Globalization;
+using TableReservationManager;
+using OrderManager;
+using PaymentManager;
 
 namespace TUI
 {
@@ -68,7 +71,7 @@ namespace TUI
 
 
 
-		/* DISPLAY MENU METHODS */
+		/* WELCOME LOGIN/REGISTER SCREEN */
 
 		public void DisplayWelcomeScreen()
         {
@@ -130,6 +133,10 @@ namespace TUI
 			DisplayWelcomeScreen();
 		}
 
+
+
+		/* MAIN MENU SCREEN */
+		
 		public void DisplayMainScreen()
         {
 			DisplayHeader("Main Menu");
@@ -140,7 +147,8 @@ namespace TUI
 			{
 				("View dish menu", DisplayDishMenu),
 				("View daily/monthly dish", DisplayDailyMonthlyDishScreen),
-				("Table reservations", Dummy),
+				("Table reservations", DisplayReservationsMenuScreen),
+				("Order takeaway", DisplayOrderMenuScreen),
 				("Contact us", DisplayContactScreen)
 			};
 
@@ -151,12 +159,17 @@ namespace TUI
 			}
 			if (permission == AccountPermissionTypes.Admin)
             {
-				options.Add(("View transactions", Dummy));
+				options.Add(("View all transactions", DisplayAllReservationsScreen));
+				options.Add(("View all orders", DisplayAllOrdersScreen));
             }
 			options.Add(("Logout", DisplayLogoutScreen));
 
 			Navigate(options);
 		}
+
+
+
+		/* DISH MENU */
 
 		public void DisplayDishMenu()
 		{
@@ -206,6 +219,10 @@ namespace TUI
 			DisplayMainScreen();
 		}
 
+
+
+		/* DAILY/MONTHLY DISH */ 
+
 		public void DisplayDailyMonthlyDishScreen()
         {
 			DisplayHeader("Daily and Monthly Dish");
@@ -219,6 +236,10 @@ namespace TUI
 			Clear();
 			DisplayMainScreen();
 		}
+
+
+
+		/* CONTACT PAGE */
 
 		public void DisplayContactScreen()
         {
@@ -234,6 +255,364 @@ namespace TUI
 			Clear();
 			DisplayMainScreen();
         }
+
+
+
+		/* TABLE RESERVATIONS */
+
+		public void DisplayReservationsMenuScreen()
+        {
+			DisplayHeader("Table reservations");
+			Navigate(new List<(string, Action)>
+			{
+				("Reserve a table", DisplayReserveTableScreen),
+				("View my reservations", DisplayMyReservationsScreen),
+				("Cancel my reservation", DisplayCancelReservationsScreen),
+				("Return to main menu", DisplayMainScreen)
+			});
+		}
+
+		public void DisplayReserveTableScreen()
+        {
+			DisplayHeader("Reserve a Table");
+			Dictionary<DateTime, Dictionary<int, int>> spots = TableReservation.GetAvailabilityUpcomingDays(14);
+			List<DateTime> days = TableReservation.GetNextNDays(14);
+
+			int choiceCounter = 0;
+			foreach(KeyValuePair<DateTime, Dictionary<int, int>> entry in spots)
+            {
+				string text = $"{++choiceCounter}. {entry.Key.ToString("dd/MM")}\t";
+				foreach (KeyValuePair<int, int> innerEntry in entry.Value)
+					text += $"{innerEntry.Value} spots (Table for {innerEntry.Key})\t";
+				WriteLine(text);
+            }
+			DisplayFooter();
+			WriteLine();
+
+			int choice = -1;
+			while (!(choice >= 1 && choice <= spots.Count))
+            {
+				Write("Choose a day (using the numbering): ");
+				Int32.TryParse(ReadLine(), out choice);
+			}
+
+			DateTime chosenDay = days[choice - 1];
+
+			Clear();
+			DisplayHeader($"Reserve a Table ({chosenDay:dd/MM})");
+
+
+
+			
+			choiceCounter = 0;
+			Dictionary<Table, List<TimeSlots>> tableSpots = TableReservation.TableAvailability(chosenDay);
+
+			List<(Table, TimeSlots)> tableChoices = new List<(Table, TimeSlots)>();
+			foreach(KeyValuePair<Table, List<TimeSlots>> entry in tableSpots)
+            {
+				string text = $"Table {entry.Key.TableNumber} ({entry.Key.Size}p)\t\t";
+				foreach(TimeSlots slot in entry.Value)
+                {
+					tableChoices.Add((entry.Key, slot));
+					text += $"{++choiceCounter}. {slot.Time()}\t";
+                }
+				WriteLine(text);
+            }
+			DisplayFooter();
+			WriteLine();
+			
+			choice = -1;
+			while (!(choice >= 1 && choice <= tableChoices.Count))
+			{
+				Write("Choose a timeslot (using the numbering): ");
+				Int32.TryParse(ReadLine(), out choice);
+			}
+			(Table, TimeSlots) chosenTableSlot = tableChoices[choice - 1];
+			WriteLine($"{chosenTableSlot.Item1} - {chosenTableSlot.Item2.Time()}");
+
+			Clear();
+			DisplayHeader("Reservation confirmation");
+			WriteLine($"You have chosen Table {chosenTableSlot.Item1.TableNumber} ({chosenTableSlot.Item1.Size}p) " +
+				$"at {chosenDay:dd/MM} {chosenTableSlot.Item2.Time()}");
+			DisplayFooter();
+			
+			string inputConfirmation = "";
+			while (inputConfirmation != "yes" && inputConfirmation != "no")
+            {
+				Write("Are you sure you would like to make the reservation? (yes/no): ");
+				inputConfirmation = ReadLine();
+			}
+				
+
+			if (inputConfirmation == "yes")
+            {
+				new TableReservation(chosenTableSlot.Item1, Accounts.SessionAccount, chosenDay, chosenTableSlot.Item2);
+				Clear();
+				WriteLine($"Reservation made for {chosenDay:dd/MM} at {chosenTableSlot.Item2.Time()}");
+				DisplayReservationsMenuScreen();
+            }
+            else
+            {
+				Clear();
+				WriteLine($"Reservation aborted");
+				DisplayReservationsMenuScreen();
+			}
+
+		}
+
+		public void DisplayMyReservationsScreen()
+        {
+			DisplayHeader("View my Reservations");
+
+			List<TableReservation> reservations = TableReservation.GetReservationsByAccount(Accounts.SessionAccount);
+
+			if (reservations.Count > 0)
+            {
+				foreach (TableReservation reservation in reservations)
+					WriteLine(reservation);
+			}
+			else
+            {
+				WriteLine("You currently have made no reservations.");
+            }
+			DisplayFooter();
+
+			Write("\nPress enter to return...");
+			ReadLine();
+			Clear();
+			DisplayReservationsMenuScreen();
+		}
+		
+		public void DisplayCancelReservationsScreen()
+        {
+			DisplayHeader("Cancel my Reservations");
+			int numbering = 0;
+			List<TableReservation> reservations = TableReservation.GetReservationsByAccount(Accounts.SessionAccount);
+			foreach (TableReservation reservation in reservations)
+				WriteLine($"{++numbering}. {reservation}");
+			DisplayFooter();
+
+			int chosenOption = 0;
+			while (!(chosenOption > 0 && chosenOption <= reservations.Count))
+            {
+				Write("Select the reservation you would like to cancel (leave blank to abort): ");
+				string input = ReadLine();
+				if (input == "")
+                {
+					Clear();
+					WriteLine($"No reservation has been cancelled");
+					DisplayReservationsMenuScreen();
+				}
+				Int32.TryParse(input, out chosenOption);
+            }
+			DisplayFooter();
+			WriteLine();
+			TableReservation chosenReservation = reservations[chosenOption - 1];
+			
+			string inputConfirmation = "";
+			while (inputConfirmation != "yes" && inputConfirmation != "no")
+			{
+				Write($"Are you sure you want to remove reservation {chosenReservation} (yes/no): ");
+				inputConfirmation = ReadLine();
+			}
+
+			if (inputConfirmation == "yes")
+			{
+				string text = chosenReservation.ToString();
+				TableReservation.RemoveTableReservation(chosenReservation);
+				Clear();
+				WriteLine($"Successfully cancelled reservation: {text}");
+				DisplayReservationsMenuScreen();
+			}
+			else
+			{
+				Clear();
+				WriteLine($"No reservation has been cancelled");
+				DisplayReservationsMenuScreen();
+			}
+		}
+
+
+
+		/* DISH ORDERING SCREEN */
+
+		public void DisplayOrderMenuScreen()
+        {
+			DisplayHeader("Order Menu");
+			Navigate(new List<(string, Action)>
+			{
+				("Place an order", DisplayOrderScreen),
+				("View my orders", DisplayViewOrderScreen),
+				("Return to main menu", DisplayMainScreen)
+			});
+        }
+
+		public void DisplayOrderScreen()
+        {
+			DisplayHeader("Order TakeAway");
+			Dish.PrintDishes();
+			DisplayFooter();
+
+			string inputDish = "";
+			string inputAmount = "";
+
+			int dishcode = 0;
+			int amount = 0;
+			List<OrderItem> orderItems = new List<OrderItem>();
+
+			WriteLine("\nSelect the dishes you want to order. Type pay to continue, type exit to abort.\n");
+			while (true)
+            {
+				Write("Select dish by code: ");
+				inputDish = ReadLine();
+
+				if (inputDish == "pay")
+					break;
+				else if (inputDish == "exit")
+                {
+					Clear();
+					WriteLine("Order process aborted.");
+					DisplayOrderMenuScreen();
+                }
+
+				Write("Enter amount: ");
+				inputAmount = ReadLine();
+				if (inputAmount == "pay")
+					break;
+				else if (inputAmount == "exit")
+				{
+					Clear();
+					WriteLine("Order process aborted.");
+					DisplayOrderMenuScreen();
+				}
+
+				Int32.TryParse(inputDish, out dishcode);
+				Int32.TryParse(inputAmount, out amount);
+				if (!Dish.DishDict.ContainsKey(dishcode) || amount == 0)
+					continue;
+				orderItems.Add(new OrderItem(Dish.DishDict[dishcode], amount));
+			}
+			Order order = new Order(orderItems, DateTime.Today);
+			WriteLine($"\nYou have chosen the dishes:\n{order}\nThe total price is {order.ComputePrice()}€\n");
+
+
+			string inputConfirmation = "";
+			while (inputConfirmation != "yes" && inputConfirmation != "no")
+			{
+				Write($"Would you like to proceed to payment (yes/no): ");
+				inputConfirmation = ReadLine();
+			}
+
+			if (inputConfirmation == "no")
+			{
+				Clear();
+				WriteLine($"Order process aborted.");
+				DisplayMainScreen();
+			}
+			DisplayFooter();
+
+			Clear();
+			DisplayHeader("Finishing up Order");
+
+			WriteLine("1. Cash\n2. Online\n");
+			DisplayFooter();
+			
+			string input = "";
+			while (input != "1" && input != "2")
+            {
+				Write("How would you like to pay?: ");
+				input = ReadLine();
+			}
+
+			if (input == "2")
+            {
+				Clear();
+				DisplayHeader("Finishing up Order - Online Payment");
+				WriteLine("1. Master Card\n2. Visa Card\n3. IDeal");
+				DisplayFooter();
+				WriteLine();
+
+
+				Dictionary<string, Payment> paymentMapping = new Dictionary<string, Payment>
+				{
+					{ "1", Payment.MasterCard },
+					{ "2", Payment.Visa },
+					{ "3", Payment.IDeal }
+				};
+				input = "";
+				while (input != "1" && input != "2" && input != "3")
+				{
+					Write("Choose your payment option: ");
+					input = ReadLine();
+				}
+
+				Payment paymentOption = paymentMapping[input];
+
+				string paymentInfo = "";
+				while (!paymentOption.IsValid(paymentInfo))
+                {
+					Write("Carefully enter your payment information (exit to abort): ");
+					paymentInfo = ReadLine();
+
+					if (paymentInfo == "exit")
+                    {
+						Clear();
+						WriteLine("Order process aborted.");
+						DisplayMainScreen();
+					}
+
+				}
+
+			}
+
+			input = "";
+			while (input != "yes" && input != "no")
+			{
+				Write("Would you like to confirm your order (yes/no): ");
+				input = ReadLine();
+			}
+
+			if (input == "yes")
+            {
+				order.MakeOrder(Accounts.SessionAccount);
+				Clear();
+				WriteLine("Order succesfully placed.");
+				DisplayMainScreen();
+            }
+			else
+            {
+				Clear();
+				WriteLine("Order process aborted.");
+				DisplayMainScreen();
+            }
+		}
+
+
+		public void DisplayViewOrderScreen()
+        {
+			DisplayHeader("My Orders");
+
+			if (Order.AllOrders.ContainsKey(Accounts.SessionAccount))
+				foreach (Order order in Order.AllOrders[Accounts.SessionAccount])
+					WriteLine($"{order.DateOrdered:dd/MM} - {order.Info()}");
+			else
+				WriteLine("You have no orders");
+			
+				
+			DisplayFooter();
+
+			Write("\nPress enter to return...");
+			ReadLine();
+			Clear();
+			DisplayOrderMenuScreen();
+		}
+
+
+
+
+
+
+		/* DISH MANAGEMENT SCREEN */
 
 		public void DisplayDishManagementScreen()
         {
@@ -397,6 +776,48 @@ namespace TUI
 			DisplayMainScreen();
 		}
 
+
+
+		/* ADMIN PAGE */
+
+		public void DisplayAllReservationsScreen()
+        {
+			DisplayHeader("All Transactions");
+			if (TableReservation.Reservations.Count > 0)
+				foreach (KeyValuePair<DateTime, List<TableReservation>> entry in TableReservation.Reservations)
+					foreach (TableReservation reservation in entry.Value)
+						WriteLine($"{entry.Key:dd/MM} (by {reservation.Account.Username}) - {reservation}");
+			else
+				WriteLine("Currently no reservations have been made.");
+			DisplayFooter();
+
+			Write("\n\nPress enter to return...");
+			ReadLine();
+			Clear();
+			DisplayMainScreen();
+		}
+
+		public void DisplayAllOrdersScreen()
+        {
+			DisplayHeader("All Orders");
+			if (Order.AllOrders.Count > 0)
+				foreach (KeyValuePair<Account, List<Order>> entry in Order.AllOrders)
+					foreach (Order order in entry.Value)
+						WriteLine($"Order by {entry.Key.Username} - {order.Info()}");
+			else
+				WriteLine("Currently no orders have been made.");
+			DisplayFooter();
+
+			Write("\n\nPress enter to return...");
+			ReadLine();
+			Clear();
+			DisplayMainScreen();
+		}
+
+
+
+		/* LOGOUT */
+		
 		public void DisplayLogoutScreen()
 		{
 			Accounts.SignOut();
@@ -405,27 +826,7 @@ namespace TUI
 
 		public void Exit()
         {
-			// Savely exit, storing every changed and added dish, reservations etc
+			// TODO: Savely exit, storing every changed and added dish, reservations etc
         }
-
-		public void Dummy() { }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	}
 }

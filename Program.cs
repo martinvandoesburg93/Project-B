@@ -6,6 +6,10 @@ using TUI;
 using DishManager;
 using System.Runtime.InteropServices;
 using System.Linq;
+using TableReservationManager;
+using AccountManager;
+using PaymentManager;
+using OrderManager;
 
 namespace Restaurant_Web_app
 {
@@ -15,18 +19,50 @@ namespace Restaurant_Web_app
 		static void Main(string[] args)
 		{
             Console.OutputEncoding = System.Text.Encoding.UTF8;
+            
+            // FILL THE RESERVATION TABLE TIMESLOTS AND DISH MENU
+            FillTables();
             FillDishMenu();
 
-            // Set a random daily and monthly dish
+
+            // SET THE DAILY AND MONTHLY DISH RANDOMLY
             Random rand = new Random();
             var dishes = Dish.DishDict.Values.ToList();
             Dish.DailyDish = dishes[rand.Next(0, dishes.Count)];
+            Dish.MonthlyDish = dishes[rand.Next(0, dishes.Count)];
 
+
+            // INPUT FAKE RESERVATION
+            Account acc = Accounts.AccountsDict["admin"];
+            Table tab = Table.Tables[0];
+            DateTime time = TableReservation.GetNextNDays(1)[0];
+            new TableReservation(tab, acc, time, TimeSlots.FirstSlot);
+
+
+            // INPUT FAKE ORDER
+            Order order = new Order(new List<OrderItem>
+            {
+                new OrderItem(Dish.DishDict[2006], 2),
+                new OrderItem(Dish.DishDict[4001], 1),
+                new OrderItem(Dish.DishDict[6011], 1),
+            }, DateTime.Today);
+            order.MakeOrder(acc);
+
+
+            // RUN TUI
             TextUserInterface TUI = new TextUserInterface();
             TUI.DisplayWelcomeScreen();
-
         }
 
+        public static void FillTables()
+        {
+            for (int i = 0; i < 8; i++)
+                new Table(2);
+            for (int i = 0; i < 5; i++)
+                new Table(4);
+            for (int i = 0; i < 2; i++)
+                new Table(6);
+        }
 
 		public static void FillDishMenu()
         {
