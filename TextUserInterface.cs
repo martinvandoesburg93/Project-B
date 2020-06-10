@@ -514,7 +514,7 @@ namespace TUI
 			Clear();
 			DisplayHeader("Finishing up Order");
 
-			WriteLine("1. Cash\n2. Online\n");
+			WriteLine(" 1. Cash\n 2. Online\n");
 			DisplayFooter();
 			
 			string input = "";
@@ -528,7 +528,7 @@ namespace TUI
             {
 				Clear();
 				DisplayHeader("Finishing up Order - Online Payment");
-				WriteLine("1. Master Card\n2. Visa Card\n3. IDeal");
+				WriteLine(" 1. Master Card\n 2. Visa Card\n 3. IDeal");
 				DisplayFooter();
 				WriteLine();
 
